@@ -135,7 +135,8 @@ static VOID draw(VOID) {
         idx=top+i;
         y=6+i;
         if(idx<count) {
-            SPrint(tmp,sizeof(tmp),L" %c %02d  %s",\n                idx==selected?L'>':L' ',idx+1,apps[idx].name);
+            SPrint(tmp,sizeof(tmp),L" %c %02d  %s",
+                idx==selected?L'>':L' ',idx+1,apps[idx].name);
             label_at(2,y,idx==selected?t->highlight:
                 (apps[idx].installed?t->accent:t->base),tmp,47);
             write_at(43,y,idx==selected?t->highlight:t->dim,
