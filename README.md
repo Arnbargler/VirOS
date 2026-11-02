@@ -70,13 +70,13 @@ This is a first implementation and has **not yet been hardware tested**. Next: s
 
 ## BLOCKS.EFI game
 
-Native UEFI 80x25 text-mode falling-block puzzle, with coloured cells, score, cleared lines, and accelerating gravity. Does not use GOP or framebuffer graphics.
+Native UEFI 80x25 text-mode falling-block puzzle, with coloured solid-block Unicode glyphs, aligned double-line Unicode board borders, score, cleared lines, and accelerating gravity. Both glyph types were visually verified on the ThinkPad X280 in the Unicode diagnostic. Does not use GOP or framebuffer graphics.
 
 - Left/Right move, Up rotate, Down soft drop, Space hard drop.
 - P pause, R restart, Esc exits to the VirOS launcher.
 - Runs its own UEFI timer event, closes that event before returning.
 
-The game is a first implementation and needs real-hardware testing. A game board repaint may be visible on slower firmware consoles; differential cell rendering is a future optimisation.
+The game is a first implementation and needs real-hardware testing. The board uses differential cell rendering to minimise flicker.
 
 ## CHESS.EFI Unicode display test
 
