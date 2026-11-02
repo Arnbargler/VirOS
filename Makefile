@@ -13,7 +13,7 @@ LDFLAGS := -nostdlib -znocombreloc -T $(EFI_LDS) -shared -Bsymbolic -L$(EFI_LIBD
 OUT := dist/EFI/BOOT/BOOTX64.EFI
 
 .PHONY: all clean usb
-all: $(OUT)
+all: $(OUT) dist/APPS/BLOCKS.EFI
 
 build/launcher.o: src/launcher.c
 	mkdir -p build
@@ -35,3 +35,15 @@ usb: all
 	test -n "$(USB)" && test -d "$(USB)"
 	cp -a dist/. "$(USB)/"
 	sync
+
+
+build/blocks.o: apps/blocks/main.c
+	mkdir -p build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/blocks.so: build/blocks.o
+	$(LD) $(LDFLAGS) $(EFI_CRT) $< -o $@ -lefi -lgnuefi
+
+dist/APPS/BLOCKS.EFI: build/blocks.so
+	mkdir -p dist/APPS
+	$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .reloc --target=efi-app-$(ARCH) $< $@
