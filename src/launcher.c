@@ -21,7 +21,7 @@ static UINTN count = 0, selected = 0, top = 0, palette = 0;
 static EFI_HANDLE boot_device;
 static EFI_HANDLE launcher_image;
 static EFI_SYSTEM_TABLE *st;
-static EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *out;
+static SIMPLE_TEXT_OUTPUT_INTERFACE *out;
 static CHAR16 status[80] = L"Ready. Select an application.";
 static const CHAR16 *placeholder[] = {
     L"Universal Reader", L"Universal Editor", L"File Manager",
