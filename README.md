@@ -12,6 +12,7 @@ A modular, **native UEFI text-console** environment. No Linux kernel, GOP graphi
 - Sixteen visible-in-menu placeholder titles (scroll to browse all).
 - Scans \`\\APPS\` on the **same FAT32 filesystem** from which the launcher booted for \`.EFI\` files; real files appear after placeholder entries.
 - Loads apps with UEFI \`LoadImage\` / \`StartImage\`. When apps return, the launcher redraws its menu.
+- Disables the firmware boot-services watchdog with `SetWatchdogTimer(0, 0, 0, NULL)` so the launcher can remain running.
 - No networking or drivers. Stays inside UEFI Boot Services.
 
 **Important:** Placeholder entries do not launch anything. Only actual \`.efi\` files under \`\\APPS\` are executable. Secure Boot may reject unsigned EFI applications.
