@@ -7,6 +7,8 @@ A modular, **native UEFI text-console** environment. No Linux kernel, GOP graphi
 - Requests **80x25 explicitly** via UEFI \`QueryMode\` / \`SetMode\`.
 - Native UEFI foreground/background colours, cursor positioning and full-width bars.
 - Four palettes (F2), help panel (F1), rescan (F3).
+- The right panel shows a live UEFI RTC clock and the current month with today's date highlighted. Firmware time may be UTC rather than local time.
+- Normal selection changes paint two rows; scrolling paints only the application list, not the entire screen.
 - Sixteen visible-in-menu placeholder titles (scroll to browse all).
 - Scans \`\\APPS\` on the **same FAT32 filesystem** from which the launcher booted for \`.EFI\` files; real files appear after placeholder entries.
 - Loads apps with UEFI \`LoadImage\` / \`StartImage\`. When apps return, the launcher redraws its menu.
