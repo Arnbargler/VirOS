@@ -132,6 +132,52 @@ static VOID draw_app_row(UINTN idx) {
     write_at(43,y,idx==selected?t->highlight:t->dim,
         apps[idx].installed?L" EFI ":L" --- ");
 }
+
+static const CHAR16 *months[] = {
+ L"January",L"February",L"March",L"April",L"May",L"June",
+ L"July",L"August",L"September",L"October",L"November",L"December"
+};
+static BOOLEAN leap(UINTN y) { return y%4==0 && (y%100!=0 || y%400==0); }
+static UINTN days_in_month(UINTN y,UINTN m) {
+ static const UINTN d[12]={31,28,31,30,31,30,31,31,30,31,30,31};
+ return m>=1&&m<=12 ? d[m-1]+(m==2&&leap(y)?1:0) : 0;
+}
+static UINTN weekday(UINTN y,UINTN m,UINTN d) {
+ static const UINTN offsets[12]={0,3,2,5,0,3,5,1,4,6,2,4};
+ if(m<3)y--;
+ return (y+y/4-y/100+y/400+offsets[m-1]+d)%7;
+}
+static BOOLEAN rtc(EFI_TIME *time) {
+ EFI_STATUS result=uefi_call_wrapper(st->RuntimeServices->GetTime,2,time,NULL);
+ return !EFI_ERROR(result)&&time->Year>=1900&&time->Month>=1&&time->Month<=12
+  &&time->Day>=1&&time->Day<=days_in_month(time->Year,time->Month)
+  &&time->Hour<24&&time->Minute<60&&time->Second<60;
+}
+static VOID clock_only(VOID) {
+ EFI_TIME now; CHAR16 buf[32];
+ if(!rtc(&now))return;
+ SPrint(buf,sizeof(buf),L"%02d:%02d:%02d",now.Hour,now.Minute,now.Second);
+ label_at(55,5,themes[palette].accent,buf,23);
+}
+static VOID calendar(VOID) {
+ const THEME *t=&themes[palette];
+ EFI_TIME now;
+ CHAR16 buf[64],day_buf[8];
+ UINTN y,first,day,p,x;
+ for(y=5;y<=18;y++)label_at(53,y,t->base,L"",26);
+ if(!rtc(&now)) {write_at(54,7,t->accent,L"RTC unavailable");return;}
+ clock_only();
+ SPrint(buf,sizeof(buf),L"%s %d",months[now.Month-1],now.Year);
+ label_at(53,7,t->header,buf,26);
+ write_at(54,9,t->dim,L"Su Mo Tu We Th Fr Sa");
+ first=weekday(now.Year,now.Month,1);
+ for(day=1;day<=days_in_month(now.Year,now.Month);day++) {
+  p=first+day-1; x=54+(p%7)*3; y=10+p/7;
+  SPrint(day_buf,sizeof(day_buf),L"%2d",day);
+  label_at(x,y,day==now.Day?t->highlight:t->base,day_buf,2);
+ }
+ write_at(54,17,t->dim,L"UEFI firmware clock");
+}
 static VOID draw(VOID) {
     const THEME *t=&themes[palette];
     UINTN y,i;
@@ -142,20 +188,11 @@ static VOID draw(VOID) {
     write_at(63,0,t->header,L"v0.1  80x25");
     fill_line(2,t->border);
     write_at(2,2,t->border,L" APPLICATIONS ");
-    write_at(53,2,t->border,L" SYSTEM / DEMO ");
+    write_at(53,2,t->border,L" CLOCK / CALENDAR ");
     write_at(2,3,t->accent,L"Use arrow keys to select an entry");
     write_at(2,4,t->dim,L"Enter to launch  |  PgUp/PgDn to jump");
     for(i=0;i<VISIBLE;i++) draw_app_row(top+i);
-    write_at(53,5,t->accent,L"UEFI TEXT CONSOLE");
-    write_at(53,7,t->base,L"80 columns x 25 rows");
-    write_at(53,9,t->accent,L"PALETTE");
-    label_at(53,10,t->header,theme_names[palette],22);
-    write_at(53,12,t->base,L"F2  Change colours");
-    write_at(53,13,t->base,L"F3  Rescan USB apps");
-    write_at(53,14,t->base,L"F1  Help");
-    write_at(53,15,t->base,L"ESC Repaint screen");
-    write_at(53,17,t->dim,L"Installed EFI apps");
-    write_at(53,18,t->dim,L"marked in cyan.");
+    calendar();
     fill_line(20,t->border);
     label_at(2,21,t->base,status,76);
     fill_line(23,t->footer);
@@ -200,6 +237,9 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *system_tab
     EFI_LOADED_IMAGE *loaded=NULL;
     EFI_INPUT_KEY key;
     EFI_STATUS result;
+    EFI_EVENT timer=NULL,events[2];
+    EFI_TIME last_time;
+    BOOLEAN last_valid=FALSE;
     UINTN i,mode=0,cols=0,rows=0,idx;
     InitializeLib(image_handle,system_table);
     st=system_table; out=st->ConOut;
@@ -220,11 +260,29 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *system_tab
     if(loaded) boot_device=loaded->DeviceHandle;
     discover();
     draw();
+    events[0]=st->ConIn->WaitForKey;
+    result=uefi_call_wrapper(st->BootServices->CreateEvent,5,EVT_TIMER,0,NULL,NULL,&timer);
+    if(!EFI_ERROR(result)) {
+        uefi_call_wrapper(st->BootServices->SetTimer,3,timer,TimerPeriodic,10000000);
+        events[1]=timer;
+    } else timer=NULL;
     for(;;) {
         UINTN old_selected=selected, old_top=top;
         BOOLEAN redraw=FALSE, status_changed=FALSE;
         idx=0;
-        uefi_call_wrapper(st->BootServices->WaitForEvent,3,1,&st->ConIn->WaitForKey,&idx);
+        uefi_call_wrapper(st->BootServices->WaitForEvent,3,timer?2:1,events,&idx);
+        if(timer && idx==1) {
+            EFI_TIME now;
+            if(rtc(&now)) {
+                if(!last_valid || now.Year!=last_time.Year ||
+                   now.Month!=last_time.Month || now.Day!=last_time.Day)
+                    calendar();
+                else if(now.Hour!=last_time.Hour || now.Minute!=last_time.Minute ||
+                        now.Second!=last_time.Second) clock_only();
+                last_time=now; last_valid=TRUE;
+            }
+            continue;
+        }
         result=uefi_call_wrapper(st->ConIn->ReadKeyStroke,2,st->ConIn,&key);
         if(EFI_ERROR(result)) continue;
         if(key.ScanCode==SCAN_UP && selected>0) selected--;
@@ -255,9 +313,12 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *system_tab
         }
         if(selected<top) top=selected;
         if(selected>=top+VISIBLE) top=selected-VISIBLE+1;
-        if(top!=old_top) redraw=TRUE;
         if(redraw) draw();
-        else {
+        else if(top!=old_top) {
+            /* Only redraw the application list on scrolling. */
+            for(i=0;i<VISIBLE;i++) draw_app_row(top+i);
+            if(status_changed) label_at(2,21,themes[palette].base,status,76);
+        } else {
             if(selected!=old_selected) {
                 draw_app_row(old_selected);
                 draw_app_row(selected);
