@@ -5,6 +5,8 @@
 #define BH 20
 #define SX 24
 #define SY 2
+#define LEFT_WALL (SX-1)
+#define RIGHT_WALL (SX+BW*2)
 static EFI_SYSTEM_TABLE *sys;
 static SIMPLE_TEXT_OUTPUT_INTERFACE *con;
 static UINT8 board[BH][BW];
@@ -25,7 +27,8 @@ static const UINT16 shapes[7][4]={
  {0x08E0,0x6440,0x0E20,0x44C0}, /* J */
  {0x02E0,0x4460,0x0E80,0xC440}  /* L */
 };
-static const UINTN colors[8]={0x07,0x3F,0x6F,0x5F,0x4F,0x2F,0x1F,0x70};
+/* Coloured solid glyphs over a consistent dark-blue playfield. */
+static const UINTN colors[8]={0x10,0x1B,0x1E,0x1D,0x1C,0x1A,0x1F,0x19};
 static VOID at(UINTN x,UINTN y,UINTN c,CHAR16 *t) {
  uefi_call_wrapper(con->SetAttribute,2,con,c);
  uefi_call_wrapper(con->SetCursorPosition,3,con,x,y);
@@ -96,7 +99,7 @@ static VOID render(VOID) {
  for(y=0;y<BH;y++)for(x=0;x<BW;x++) {
   c=frame[y][x];
   if(first_frame || c!=previous[y][x]) {
-   at(SX+x*2,SY+y,colors[c],c?L"  ":L". ");
+   at(SX+x*2,SY+y,colors[c],c?L"\u2588\u2588":L"  ");
    previous[y][x]=(UINT8)c;
   }
  }
@@ -147,9 +150,9 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *table) {
  uefi_call_wrapper(con->SetAttribute,2,con,0x07);
  uefi_call_wrapper(con->ClearScreen,1,con);
  at(24,0,0x0E,L"VirOS BLOCKS");
- at(22,1,0x0F,L"+--------------------+");
- at(22,22,0x0F,L"+--------------------+");
- for(i=2;i<22;i++){at(22,i,0x0F,L"|");at(44,i,0x0F,L"|");}
+ at(LEFT_WALL,1,0x0F,L"\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557");
+ at(LEFT_WALL,22,0x0F,L"\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D");
+ for(i=2;i<22;i++){at(LEFT_WALL,i,0x0F,L"\u2551");at(RIGHT_WALL,i,0x0F,L"\u2551");}
  if(!EFI_ERROR(uefi_call_wrapper(sys->RuntimeServices->GetTime,2,&now,NULL)))
   seed=((UINTN)now.Second<<24)^((UINTN)now.Nanosecond)^((UINTN)now.Minute<<8)^now.Day;
  reset();
