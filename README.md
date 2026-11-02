@@ -77,3 +77,7 @@ Native UEFI 80x25 text-mode falling-block puzzle, with coloured cells, score, cl
 - Runs its own UEFI timer event, closes that event before returning.
 
 The game is a first implementation and needs real-hardware testing. A game board repaint may be visible on slower firmware consoles; differential cell rendering is a future optimisation.
+
+## CHESS.EFI Unicode display test
+
+`CHESS.EFI` is currently a **font compatibility test**, not a playable chess game. It shows the twelve Unicode chess pieces, corresponding ASCII letters, and the result of the UEFI `SimpleTextOutput.TestString` check. Firmware may claim a glyph is supported yet still draw it incorrectly. The app requests 80x25 and exits on any key. No GOP usage or bundled fonts.
