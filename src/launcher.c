@@ -19,6 +19,7 @@ typedef struct {
 static APP apps[MAX_APPS];
 static UINTN count = 0, selected = 0, top = 0, palette = 0;
 static EFI_HANDLE boot_device;
+static EFI_HANDLE launcher_image;
 static EFI_SYSTEM_TABLE *st;
 static EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *out;
 static CHAR16 status[80] = L"Ready. Select an application.";
@@ -81,17 +82,12 @@ static BOOLEAN is_efi(const CHAR16 *s) {
         (s[len-1]==L'i'||s[len-1]==L'I');
 }
 static VOID discover(VOID) {
-    EFI_LOADED_IMAGE *loaded=NULL;
     EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *fs=NULL;
     EFI_FILE_HANDLE root=NULL, dir=NULL;
     EFI_STATUS result;
     UINTN i;
     count=0; selected=0; top=0;
     for(i=0;i<placeholder_count;i++) add_app(placeholder[i],L"",FALSE);
-    result=uefi_call_wrapper(st->BootServices->HandleProtocol,3,
-        st->ConsoleOutHandle,&LoadedImageProtocol,(VOID**)&loaded);
-    /* The launcher handle is obtained from efi_main; no need for ConsoleOutHandle. */
-    (void)result; (void)loaded;
     if (!boot_device) { set_status(L"Boot device unavailable."); return; }
     result=uefi_call_wrapper(st->BootServices->HandleProtocol,3,
         boot_device,&FileSystemProtocol,(VOID**)&fs);
@@ -139,8 +135,7 @@ static VOID draw(VOID) {
         idx=top+i;
         y=6+i;
         if(idx<count) {
-            SPrint(tmp,sizeof(tmp),L" %c %02d  %-34.34s",
-                idx==selected?L'>':L' ',idx+1,apps[idx].name);
+            SPrint(tmp,sizeof(tmp),L" %c %02d  %s",\n                idx==selected?L'>':L' ',idx+1,apps[idx].name);
             label_at(2,y,idx==selected?t->highlight:
                 (apps[idx].installed?t->accent:t->base),tmp,47);
             write_at(43,y,idx==selected?t->highlight:t->dim,
@@ -187,7 +182,7 @@ static EFI_STATUS launch(APP *app) {
     dp=FileDevicePath(boot_device,app->path);
     if(!dp) {set_status(L"Could not construct app device path.");return EFI_OUT_OF_RESOURCES;}
     result=uefi_call_wrapper(st->BootServices->LoadImage,6,FALSE,
-        gImageHandle,dp,NULL,0,&image);
+        launcher_image,dp,NULL,0,&image);
     if(!EFI_ERROR(result))
         result=uefi_call_wrapper(st->BootServices->StartImage,3,image,NULL,NULL);
     if(image) uefi_call_wrapper(st->BootServices->UnloadImage,1,image);
@@ -204,7 +199,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *system_tab
     UINTN i,mode=0,cols=0,rows=0,idx;
     InitializeLib(image_handle,system_table);
     st=system_table; out=st->ConOut;
-    gImageHandle=image_handle;
+    launcher_image=image_handle;
     /* Explicitly select an available 80x25 mode. Never assume mode 0. */
     for(i=0;i<(UINTN)out->Mode->MaxMode;i++) {
         result=uefi_call_wrapper(out->QueryMode,4,out,i,&cols,&rows);
