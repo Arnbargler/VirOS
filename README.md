@@ -9,13 +9,12 @@ A modular, **native UEFI text-console** environment. No Linux kernel, GOP graphi
 - Four palettes (F2), help panel (F1), rescan (F3).
 - The right panel shows a live UEFI RTC clock and the current month with today's date highlighted. Firmware time may be UTC rather than local time.
 - Normal selection changes paint two rows; scrolling paints only the application list, not the entire screen.
-- Sixteen visible-in-menu placeholder titles (scroll to browse all).
-- Scans \`\\APPS\` on the **same FAT32 filesystem** from which the launcher booted for \`.EFI\` files; real files appear after placeholder entries.
+- Scans \`\\APPS\` on the **same FAT32 filesystem** from which the launcher booted for \`.EFI\` files; only installed apps are shown.
 - Loads apps with UEFI \`LoadImage\` / \`StartImage\`. When apps return, the launcher redraws its menu.
 - Disables the firmware boot-services watchdog with `SetWatchdogTimer(0, 0, 0, NULL)` so the launcher can remain running.
 - No networking or drivers. Stays inside UEFI Boot Services.
 
-**Important:** Placeholder entries do not launch anything. Only actual \`.efi\` files under \`\\APPS\` are executable. Secure Boot may reject unsigned EFI applications.
+**Important:** Only actual \`.efi\` files under \`\\APPS\` appear in the menu. Secure Boot may reject unsigned EFI applications.
 
 ## Build on Ubuntu/Debian
 
@@ -54,7 +53,7 @@ Add future programs by copying \`APPNAME.EFI\` to \`APPS/\`, then press F3. The 
 
 - Up/Down: change selection
 - Page Up/Page Down, Home/End: faster movement
-- Enter: launch selected real app / show placeholder status
+- Enter: launch selected app
 - F1: help
 - F2: change colour theme
 - F3: rescan the USB's APPS directory
@@ -78,6 +77,6 @@ Native UEFI 80x25 text-mode falling-block puzzle, with coloured solid-block Unic
 
 The game is a first implementation and needs real-hardware testing. The board uses differential cell rendering to minimise flicker.
 
-## CHESS.EFI Unicode display test
+## TEST.EFI diagnostics
 
-`CHESS.EFI` is currently a **font compatibility test**, not a playable chess game. It shows ASCII controls, single/double box-drawing characters, block/shading characters, arrows, and all twelve Unicode chess pieces, together with UEFI `SimpleTextOutput.TestString` results for each group. Firmware may claim a glyph is supported yet still draw it incorrectly. The app requests 80x25 and exits on any key. No GOP usage or bundled fonts.
+`TEST.EFI` is a reusable diagnostic utility, currently featuring the Unicode/font compatibility test. It shows ASCII controls, single/double box-drawing characters, block/shading characters, arrows, and all twelve Unicode chess pieces, together with UEFI `SimpleTextOutput.TestString` results for each group. Firmware may claim a glyph is supported yet still draw it incorrectly. The app requests 80x25 and exits on any key. No GOP usage or bundled fonts.
