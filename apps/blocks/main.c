@@ -9,6 +9,10 @@ static EFI_SYSTEM_TABLE *sys;
 static SIMPLE_TEXT_OUTPUT_INTERFACE *con;
 static UINT8 board[BH][BW];
 static UINT8 frame[BH][BW];
+static UINT8 previous[BH][BW];
+static BOOLEAN first_frame=TRUE;
+static UINTN previous_score=(UINTN)-1,previous_lines=(UINTN)-1,previous_level=(UINTN)-1;
+static INTN previous_state=-1;
 static UINTN score, lines, level, seed=0x12345;
 static INTN px,py,piece,rotation;
 static BOOLEAN over=FALSE,paused=FALSE;
@@ -50,7 +54,7 @@ static VOID spawn(VOID) {
 static VOID reset(VOID) {
  UINTN x,y;
  for(y=0;y<BH;y++)for(x=0;x<BW;x++)board[y][x]=0;
- score=0;lines=0;level=1;over=FALSE;paused=FALSE;spawn();
+ score=0;lines=0;level=1;over=FALSE;paused=FALSE;first_frame=TRUE;spawn();
 }
 static VOID lock_piece(VOID) {
  INTN a,b,xx,yy;INTN y,x,k;
@@ -91,19 +95,41 @@ static VOID render(VOID) {
  }
  for(y=0;y<BH;y++)for(x=0;x<BW;x++) {
   c=frame[y][x];
-  at(SX+x*2,SY+y,colors[c],c?L"  ":L". ");
+  if(first_frame || c!=previous[y][x]) {
+   at(SX+x*2,SY+y,colors[c],c?L"  ":L". ");
+   previous[y][x]=(UINT8)c;
+  }
  }
- SPrint(number,sizeof(number),L"Score  %-10d",score);at(52,5,0x0F,number);
- SPrint(number,sizeof(number),L"Lines  %-10d",lines);at(52,7,0x0F,number);
- SPrint(number,sizeof(number),L"Level  %-10d",level);at(52,9,0x0F,number);
- at(52,12,0x0B,L"Left/Right Move");
- at(52,13,0x0B,L"Up         Rotate");
- at(52,14,0x0B,L"Down       Soft drop");
- at(52,15,0x0B,L"Space      Hard drop");
- at(52,16,0x0B,L"P          Pause");
- at(52,17,0x0B,L"R          Restart");
- at(52,18,0x0B,L"ESC        Launcher");
- at(52,20,over?0x0C:0x0E,over?L"GAME OVER       ":(paused?L"PAUSED          ":L"                "));
+ if(first_frame||score!=previous_score){
+  SPrint(number,sizeof(number),L"Score  %-10d",score);at(52,5,0x0F,number);
+  previous_score=score;
+ }
+ if(first_frame||lines!=previous_lines){
+  SPrint(number,sizeof(number),L"Lines  %-10d",lines);at(52,7,0x0F,number);
+  previous_lines=lines;
+ }
+ if(first_frame||level!=previous_level){
+  SPrint(number,sizeof(number),L"Level  %-10d",level);at(52,9,0x0F,number);
+  previous_level=level;
+ }
+ if(first_frame){
+  at(52,12,0x0B,L"Left/Right Move");
+  at(52,13,0x0B,L"Up         Rotate");
+  at(52,14,0x0B,L"Down       Soft drop");
+  at(52,15,0x0B,L"Space      Hard drop");
+  at(52,16,0x0B,L"P          Pause");
+  at(52,17,0x0B,L"R          Restart");
+  at(52,18,0x0B,L"ESC        Launcher");
+ }
+ {
+  INTN state=over?2:(paused?1:0);
+  if(first_frame||state!=previous_state){
+   at(52,20,over?0x0C:0x0E,over?L"GAME OVER       ":
+     (paused?L"PAUSED          ":L"                "));
+   previous_state=state;
+  }
+ }
+ first_frame=FALSE;
 }
 EFI_STATUS EFIAPI efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *table) {
  EFI_STATUS result;EFI_EVENT timer=NULL,ev[2];EFI_INPUT_KEY key;
