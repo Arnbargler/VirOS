@@ -1,24 +1,35 @@
-/* VirOS CHESS Unicode console compatibility test. GNU-EFI x86_64. */
+/* VirOS CHESS: UEFI text console glyph compatibility laboratory. */
 #include <efi.h>
 #include <efilib.h>
 static EFI_SYSTEM_TABLE *sys;
 static SIMPLE_TEXT_OUTPUT_INTERFACE *out;
-static const CHAR16 *white[6]={L"\u2654",L"\u2655",L"\u2656",L"\u2657",L"\u2658",L"\u2659"};
-static const CHAR16 *black[6]={L"\u265A",L"\u265B",L"\u265C",L"\u265D",L"\u265E",L"\u265F"};
-static const CHAR16 *names[6]={L"King",L"Queen",L"Rook",L"Bishop",L"Knight",L"Pawn"};
-static const CHAR16 *ascii[6]={L"K",L"Q",L"R",L"B",L"N",L"P"};
 static VOID put(UINTN x,UINTN y,UINTN attr,const CHAR16 *s) {
  uefi_call_wrapper(out->SetAttribute,2,out,attr);
  uefi_call_wrapper(out->SetCursorPosition,3,out,x,y);
  uefi_call_wrapper(out->OutputString,2,out,(CHAR16*)s);
 }
+typedef struct { const CHAR16 *name; const CHAR16 *glyphs; } GROUP;
+static const GROUP groups[]={
+ {L"ASCII controls",L"ABC 123 # @ + * ?"},
+ {L"UEFI box lines",L"\u2500 \u2502 \u250C \u2510 \u2514 \u2518 \u253C"},
+ {L"UEFI double",L"\u2550 \u2551 \u2554 \u2557 \u255A \u255D \u256C"},
+ {L"Block/shading",L"\u2588 \u2593 \u2592 \u2591 \u2580 \u2584"},
+ {L"Arrows",L"\u2190 \u2191 \u2192 \u2193 \u2194"},
+ {L"White chess",L"\u2654 \u2655 \u2656 \u2657 \u2658 \u2659"},
+ {L"Black chess",L"\u265A \u265B \u265C \u265D \u265E \u265F"}
+};
+static VOID show_group(UINTN row,const GROUP *group) {
+ CHAR16 buf[48];
+ EFI_STATUS r=uefi_call_wrapper(out->TestString,2,out,(CHAR16*)group->glyphs);
+ put(2,row,0x1F,group->name);
+ put(23,row,0x1E,group->glyphs);
+ SPrint(buf,sizeof(buf),L"%s",EFI_ERROR(r)?L"NO ":L"YES");
+ put(64,row,EFI_ERROR(r)?0x1C:0x1A,buf);
+}
 EFI_STATUS EFIAPI efi_main(EFI_HANDLE image,EFI_SYSTEM_TABLE *system) {
  UINTN i,cols=0,rows=0,mode=0,index;
- EFI_STATUS rc;
- EFI_INPUT_KEY key;
- CHAR16 buf[80];
- InitializeLib(image,system);
- sys=system;out=sys->ConOut;
+ EFI_STATUS rc;EFI_INPUT_KEY key;
+ InitializeLib(image,system);sys=system;out=sys->ConOut;
  uefi_call_wrapper(sys->BootServices->SetWatchdogTimer,4,0,0,0,NULL);
  for(i=0;i<(UINTN)out->Mode->MaxMode;i++){
   rc=uefi_call_wrapper(out->QueryMode,4,out,i,&cols,&rows);
@@ -30,27 +41,12 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image,EFI_SYSTEM_TABLE *system) {
  uefi_call_wrapper(out->EnableCursor,2,out,FALSE);
  uefi_call_wrapper(out->SetAttribute,2,out,0x1F);
  uefi_call_wrapper(out->ClearScreen,1,out);
- put(2,1,0x1E,L"VirOS CHESS - UNICODE DISPLAY TEST");
- put(2,3,0x1B,L"Firmware glyph support: Unicode vs ASCII");
- put(2,5,0x1F,L"Piece     White     Black     ASCII     TestString status");
- for(i=0;i<6;i++){
-  EFI_STATUS w,b;
-  UINTN y=7+i*2;
-  put(2,y,0x1F,names[i]);
-  /* TestString reports whether the firmware console claims it can print
-     the character. Some firmware still displays a replacement glyph. */
-  w=uefi_call_wrapper(out->TestString,2,out,(CHAR16*)white[i]);
-  b=uefi_call_wrapper(out->TestString,2,out,(CHAR16*)black[i]);
-  put(13,y,0x1E,white[i]);
-  put(23,y,0x1A,black[i]);
-  put(34,y,0x1F,ascii[i]);
-  SPrint(buf,sizeof(buf),L"W:%s B:%s",
-    EFI_ERROR(w)?L"NO ":L"YES",EFI_ERROR(b)?L"NO ":L"YES");
-  put(44,y,EFI_ERROR(w)||EFI_ERROR(b)?0x1C:0x1A,buf);
- }
- put(2,20,0x1F,L"Does each symbol look like a real chess piece?");
- put(2,21,0x1F,L"TestString YES is not proof of a correct glyph.");
- put(2,23,0x1E,L"Press any key to return to the VirOS launcher.");
+ put(2,1,0x1E,L"VirOS - CONSOLE CHARACTER TEST");
+ put(2,3,0x1B,L"Category               Rendered characters                TestString");
+ for(i=0;i<sizeof(groups)/sizeof(groups[0]);i++)show_group(5+i*2,&groups[i]);
+ put(2,20,0x1F,L"YES means firmware accepted the string, NOT that glyphs appear.");
+ put(2,21,0x1F,L"Compare each row against the ASCII control row.");
+ put(2,23,0x1E,L"Press any key to return to VirOS.");
  index=0;
  uefi_call_wrapper(sys->BootServices->WaitForEvent,3,1,&sys->ConIn->WaitForKey,&index);
  uefi_call_wrapper(sys->ConIn->ReadKeyStroke,2,sys->ConIn,&key);
