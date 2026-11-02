@@ -13,7 +13,7 @@ LDFLAGS := -nostdlib -znocombreloc -T $(EFI_LDS) -shared -Bsymbolic -L$(EFI_LIBD
 OUT := dist/EFI/BOOT/BOOTX64.EFI
 
 .PHONY: all clean usb
-all: $(OUT) dist/APPS/BLOCKS.EFI dist/APPS/CHESS.EFI
+all: $(OUT) dist/APPS/BLOCKS.EFI dist/APPS/TEST.EFI
 
 build/launcher.o: src/launcher.c
 	mkdir -p build
@@ -49,13 +49,13 @@ dist/APPS/BLOCKS.EFI: build/blocks.so
 	$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .reloc --target=efi-app-$(ARCH) $< $@
 
 
-build/chess.o: apps/chess/main.c
+build/test.o: apps/test/main.c
 	mkdir -p build
 	$(CC) $(CFLAGS) -c $< -o $@
 
-build/chess.so: build/chess.o
+build/test.so: build/test.o
 	$(LD) $(LDFLAGS) $(EFI_CRT) $< -o $@ -lefi -lgnuefi
 
-dist/APPS/CHESS.EFI: build/chess.so
+dist/APPS/TEST.EFI: build/test.so
 	mkdir -p dist/APPS
 	$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .reloc --target=efi-app-$(ARCH) $< $@
