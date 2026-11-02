@@ -67,3 +67,13 @@ UEFI \`SimpleTextOutput\` has firmware-controlled fonts: no guaranteed bold, ita
 The launcher stays active in its input loop; do **not** call \`ExitBootServices\` in child applications. Installed apps should use the firmware console and restore any changed mode when they return. \`LoadImage\` can reject incorrect-architecture binaries.
 
 This is a first implementation and has **not yet been hardware tested**. Next: sample app, shared UI code, reader and editor.
+
+## BLOCKS.EFI game
+
+Native UEFI 80x25 text-mode falling-block puzzle, with coloured cells, score, cleared lines, and accelerating gravity. Does not use GOP or framebuffer graphics.
+
+- Left/Right move, Up rotate, Down soft drop, Space hard drop.
+- P pause, R restart, Esc exits to the VirOS launcher.
+- Runs its own UEFI timer event, closes that event before returning.
+
+The game is a first implementation and needs real-hardware testing. A game board repaint may be visible on slower firmware consoles; differential cell rendering is a future optimisation.
