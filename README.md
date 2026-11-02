@@ -80,4 +80,4 @@ The game is a first implementation and needs real-hardware testing. A game board
 
 ## CHESS.EFI Unicode display test
 
-`CHESS.EFI` is currently a **font compatibility test**, not a playable chess game. It shows the twelve Unicode chess pieces, corresponding ASCII letters, and the result of the UEFI `SimpleTextOutput.TestString` check. Firmware may claim a glyph is supported yet still draw it incorrectly. The app requests 80x25 and exits on any key. No GOP usage or bundled fonts.
+`CHESS.EFI` is currently a **font compatibility test**, not a playable chess game. It shows ASCII controls, single/double box-drawing characters, block/shading characters, arrows, and all twelve Unicode chess pieces, together with UEFI `SimpleTextOutput.TestString` results for each group. Firmware may claim a glyph is supported yet still draw it incorrectly. The app requests 80x25 and exits on any key. No GOP usage or bundled fonts.
