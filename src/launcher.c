@@ -22,7 +22,7 @@ static EFI_HANDLE boot_device;
 static EFI_HANDLE launcher_image;
 static EFI_SYSTEM_TABLE *st;
 static SIMPLE_TEXT_OUTPUT_INTERFACE *out;
-static CHAR16 status[80] = L"Ready. Select an application.";
+static CHAR16 status[80] = L"";
 static const CHAR16 *placeholder[] = {
     L"Universal Reader", L"Universal Editor", L"File Manager",
     L"Calculator", L"Calendar", L"Clock & Timer",
@@ -115,7 +115,7 @@ static VOID discover(VOID) {
     }
     uefi_call_wrapper(dir->Close,1,dir);
     uefi_call_wrapper(root->Close,1,root);
-    set_status(L"Applications scanned. F3 refreshes the directory.");
+    set_status(L"");
 }
 /* Repaint one menu row, never the whole screen for cursor movement. */
 static VOID draw_app_row(UINTN idx) {
@@ -189,15 +189,15 @@ static VOID draw(VOID) {
     fill_line(2,t->border);
     write_at(2,2,t->border,L" APPLICATIONS ");
     write_at(53,2,t->border,L" CLOCK / CALENDAR ");
-    write_at(2,3,t->accent,L"Use arrow keys to select an entry");
-    write_at(2,4,t->dim,L"Enter to launch  |  PgUp/PgDn to jump");
+
+
     for(i=0;i<VISIBLE;i++) draw_app_row(top+i);
     calendar();
     fill_line(20,t->border);
     label_at(2,21,t->base,status,76);
     fill_line(23,t->footer);
     write_at(2,23,t->footer,L"F1 Help   F2 Theme   F3 Refresh   ENTER Open   Up/Down Move");
-    label_at(2,24,t->dim,L"VirOS | Native UEFI SimpleTextOutput | No GOP / framebuffer calls",76);
+
 }
 static VOID help(VOID) {
     EFI_INPUT_KEY key;
@@ -258,6 +258,8 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *system_tab
     uefi_call_wrapper(st->BootServices->HandleProtocol,3,
         image_handle,&LoadedImageProtocol,(VOID**)&loaded);
     if(loaded) boot_device=loaded->DeviceHandle;
+    /* The firmware watchdog can reset long-running UEFI applications. */
+    uefi_call_wrapper(st->BootServices->SetWatchdogTimer,4,0,0,0,NULL);
     discover();
     draw();
     events[0]=st->ConIn->WaitForKey;
