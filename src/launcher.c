@@ -23,14 +23,6 @@ static EFI_HANDLE launcher_image;
 static EFI_SYSTEM_TABLE *st;
 static SIMPLE_TEXT_OUTPUT_INTERFACE *out;
 static CHAR16 status[80] = L"";
-static const CHAR16 *placeholder[] = {
-    L"Universal Reader", L"Universal Editor", L"File Manager",
-    L"Calculator", L"Calendar", L"Clock & Timer",
-    L"System Information", L"Terminal", L"Hex Viewer",
-    L"Chess", L"Music Player", L"App 12",
-    L"App 13", L"App 14", L"App 15", L"App 16"
-};
-static const UINTN placeholder_count = sizeof(placeholder)/sizeof(placeholder[0]);
 
 /* UEFI colour values: low nibble foreground, high nibble background. */
 typedef struct { UINTN base, header, border, highlight, dim, accent, footer; } THEME;
@@ -84,9 +76,7 @@ static VOID discover(VOID) {
     EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *fs=NULL;
     EFI_FILE_HANDLE root=NULL, dir=NULL;
     EFI_STATUS result;
-    UINTN i;
     count=0; selected=0; top=0;
-    for(i=0;i<placeholder_count;i++) add_app(placeholder[i],L"",FALSE);
     if (!boot_device) { set_status(L"Boot device unavailable."); return; }
     result=uefi_call_wrapper(st->BootServices->HandleProtocol,3,
         boot_device,&FileSystemProtocol,(VOID**)&fs);
@@ -191,6 +181,7 @@ static VOID draw(VOID) {
 
 
     for(i=0;i<VISIBLE;i++) draw_app_row(top+i);
+    if(!count) write_at(4,7,t->dim,L"No EFI applications found in \\APPS.");
     calendar();
     fill_line(20,t->border);
     label_at(2,21,t->base,status,76);
@@ -209,7 +200,7 @@ static VOID help(VOID) {
     write_at(5,9,t->header,L" SetMode requests 80x25, colours use SetAttribute.");
     write_at(5,10,t->header,L" Cursor movement uses SetCursorPosition.");
     write_at(5,11,t->header,L" EFI apps load from \\APPS on the boot USB key.");
-    write_at(5,12,t->header,L" Placeholder apps are intentionally not executable.");
+    write_at(5,12,t->header,L" Only installed EFI applications are listed.");
     write_at(5,14,t->header,L" Press any key to close this panel.");
     uefi_call_wrapper(st->BootServices->WaitForEvent,3,1,&st->ConIn->WaitForKey,&index);
     uefi_call_wrapper(st->ConIn->ReadKeyStroke,2,st->ConIn,&key);
@@ -218,7 +209,6 @@ static EFI_STATUS launch(APP *app) {
     EFI_DEVICE_PATH *dp;
     EFI_HANDLE image=NULL;
     EFI_STATUS result;
-    if(!app->installed) {set_status(L"Placeholder: application not installed yet.");return EFI_NOT_FOUND;}
     dp=FileDevicePath(boot_device,app->path);
     if(!dp) {set_status(L"Could not construct app device path.");return EFI_OUT_OF_RESOURCES;}
     result=uefi_call_wrapper(st->BootServices->LoadImage,6,FALSE,
@@ -289,9 +279,9 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *system_tab
         if(key.ScanCode==SCAN_UP && selected>0) selected--;
         else if(key.ScanCode==SCAN_DOWN && selected+1<count) selected++;
         else if(key.ScanCode==SCAN_PAGE_UP) selected=selected>VISIBLE?selected-VISIBLE:0;
-        else if(key.ScanCode==SCAN_PAGE_DOWN) selected+VISIBLE<count? (selected+=VISIBLE):(selected=count-1);
+        else if(key.ScanCode==SCAN_PAGE_DOWN && count) selected+VISIBLE<count? (selected+=VISIBLE):(selected=count-1);
         else if(key.ScanCode==SCAN_HOME) selected=0;
-        else if(key.ScanCode==SCAN_END) selected=count-1;
+        else if(key.ScanCode==SCAN_END && count) selected=count-1;
         else if(key.ScanCode==SCAN_F1) { help(); redraw=TRUE; }
         else if(key.ScanCode==SCAN_F2) {
             palette=(palette+1)%(sizeof(themes)/sizeof(themes[0]));
