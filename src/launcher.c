@@ -40,7 +40,6 @@ static const THEME themes[] = {
     {0x2F, 0x2E, 0x28, 0x70, 0x27, 0x2E, 0x2F}, /* Forest */
     {0x4F, 0x4E, 0x48, 0x70, 0x47, 0x4D, 0x4F}  /* Burgundy */
 };
-static const CHAR16 *theme_names[] = {L"MIDNIGHT",L"CLASSIC",L"FOREST",L"BURGUNDY"};
 
 static VOID color(UINTN attr) { uefi_call_wrapper(out->SetAttribute, 2, out, attr); }
 static VOID pos(UINTN x, UINTN y) { uefi_call_wrapper(out->SetCursorPosition, 3, out, x, y); }
