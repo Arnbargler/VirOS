@@ -117,10 +117,24 @@ static VOID discover(VOID) {
     uefi_call_wrapper(root->Close,1,root);
     set_status(L"Applications scanned. F3 refreshes the directory.");
 }
+/* Repaint one menu row, never the whole screen for cursor movement. */
+static VOID draw_app_row(UINTN idx) {
+    const THEME *t=&themes[palette];
+    UINTN y;
+    CHAR16 tmp[80];
+    if(idx<top || idx>=top+VISIBLE) return;
+    y=6+idx-top;
+    if(idx>=count) { label_at(2,y,t->base,L"",47); return; }
+    SPrint(tmp,sizeof(tmp),L" %c %02d  %s",
+        idx==selected?L'>':L' ',idx+1,apps[idx].name);
+    label_at(2,y,idx==selected?t->highlight:
+        (apps[idx].installed?t->accent:t->base),tmp,47);
+    write_at(43,y,idx==selected?t->highlight:t->dim,
+        apps[idx].installed?L" EFI ":L" --- ");
+}
 static VOID draw(VOID) {
     const THEME *t=&themes[palette];
-    UINTN y,i,idx;
-    CHAR16 tmp[80];
+    UINTN y,i;
     uefi_call_wrapper(out->EnableCursor,2,out,FALSE);
     for(y=0;y<HEIGHT;y++) fill_line(y,t->base);
     fill_line(0,t->header);
@@ -131,18 +145,7 @@ static VOID draw(VOID) {
     write_at(53,2,t->border,L" SYSTEM / DEMO ");
     write_at(2,3,t->accent,L"Use arrow keys to select an entry");
     write_at(2,4,t->dim,L"Enter to launch  |  PgUp/PgDn to jump");
-    for(i=0;i<VISIBLE;i++) {
-        idx=top+i;
-        y=6+i;
-        if(idx<count) {
-            SPrint(tmp,sizeof(tmp),L" %c %02d  %s",
-                idx==selected?L'>':L' ',idx+1,apps[idx].name);
-            label_at(2,y,idx==selected?t->highlight:
-                (apps[idx].installed?t->accent:t->base),tmp,47);
-            write_at(43,y,idx==selected?t->highlight:t->dim,
-                apps[idx].installed?L" EFI ":L" --- ");
-        } else label_at(2,y,t->base,L"",47);
-    }
+    for(i=0;i<VISIBLE;i++) draw_app_row(top+i);
     write_at(53,5,t->accent,L"UEFI TEXT CONSOLE");
     write_at(53,7,t->base,L"80 columns x 25 rows");
     write_at(53,9,t->accent,L"PALETTE");
@@ -216,8 +219,10 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *system_tab
         image_handle,&LoadedImageProtocol,(VOID**)&loaded);
     if(loaded) boot_device=loaded->DeviceHandle;
     discover();
+    draw();
     for(;;) {
-        draw();
+        UINTN old_selected=selected, old_top=top;
+        BOOLEAN redraw=FALSE, status_changed=FALSE;
         idx=0;
         uefi_call_wrapper(st->BootServices->WaitForEvent,3,1,&st->ConIn->WaitForKey,&idx);
         result=uefi_call_wrapper(st->ConIn->ReadKeyStroke,2,st->ConIn,&key);
@@ -228,13 +233,36 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *system_tab
         else if(key.ScanCode==SCAN_PAGE_DOWN) selected+VISIBLE<count? (selected+=VISIBLE):(selected=count-1);
         else if(key.ScanCode==SCAN_HOME) selected=0;
         else if(key.ScanCode==SCAN_END) selected=count-1;
-        else if(key.ScanCode==SCAN_F1) help();
-        else if(key.ScanCode==SCAN_F2) palette=(palette+1)%(sizeof(themes)/sizeof(themes[0]));
-        else if(key.ScanCode==SCAN_F3) discover();
+        else if(key.ScanCode==SCAN_F1) { help(); redraw=TRUE; }
+        else if(key.ScanCode==SCAN_F2) {
+            palette=(palette+1)%(sizeof(themes)/sizeof(themes[0]));
+            redraw=TRUE;
+        }
+        else if(key.ScanCode==SCAN_F3) { discover(); redraw=TRUE; }
         else if(key.UnicodeChar==CHAR_CARRIAGE_RETURN) {
-            if(selected<count) launch(&apps[selected]);
-        } else if(key.ScanCode==SCAN_ESC) set_status(L"Screen refreshed.");
+            if(selected<count) {
+                BOOLEAN real_app=apps[selected].installed;
+                launch(&apps[selected]);
+                if(real_app) {
+                    /* A child might change console mode: restore requested geometry. */
+                    uefi_call_wrapper(out->SetMode,2,out,mode);
+                    redraw=TRUE;
+                } else status_changed=TRUE;
+            }
+        } else if(key.ScanCode==SCAN_ESC) {
+            set_status(L"Screen refreshed.");
+            redraw=TRUE;
+        }
         if(selected<top) top=selected;
         if(selected>=top+VISIBLE) top=selected-VISIBLE+1;
+        if(top!=old_top) redraw=TRUE;
+        if(redraw) draw();
+        else {
+            if(selected!=old_selected) {
+                draw_app_row(old_selected);
+                draw_app_row(selected);
+            }
+            if(status_changed) label_at(2,21,themes[palette].base,status,76);
+        }
     }
 }
